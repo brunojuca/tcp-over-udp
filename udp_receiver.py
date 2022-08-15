@@ -1,5 +1,4 @@
 from socket import *
-from struct import pack
 from packet import *
 import pickle
 import numpy
