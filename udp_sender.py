@@ -36,11 +36,13 @@ def generate_buffer(input_data : str, window_size : int):
     for i in range(n_packets):
         header = Header(SOURCE, DESTINATION, i, window_size)
         max_payload_size = GREATER_PACKET_SIZE - sys.getsizeof(header) - 49 # 49 is the size of the payload list empty
-        payload = input_data[(i-1)*max_payload_size:i*max_payload_size]
+        payload = input_data[(i-1)*max_payload_size:i*max_payload_size] if i < n_packets-1 else input_data[(i-1)*max_payload_size:]
         packet_size = sys.getsizeof(payload) + sys.getsizeof(header)
 
         packet = Packet(header, packet_size, payload)
         buffer.append(packet)
+    end_packet = Packet(Header(SOURCE, DESTINATION, n_packets, window_size, end = True), sys.getsizeof(header), "")
+    buffer.append(end_packet)
     
     print(f"There are {n_packets} packets with 1024 bytes and a packet with {packet_size} bytes to be sent")
 

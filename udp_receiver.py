@@ -1,4 +1,5 @@
 from socket import *
+from struct import pack
 from packet import *
 import pickle
 import numpy
@@ -54,6 +55,9 @@ def main():
                 ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, packet.header.window_size, True), ACK_SIZE, ACK_PAYLOAD)
                 ack_dumped = pickle.dumps(ack)
                 serverSocket.sendto(ack_dumped, clientAddress)
+            if packet.header.end:
+                print("Reached end packet, breaking listening loop...")
+                break
         else:
             print(f"Packet with sequence number {packet.header.seq_number} was lost")
     
