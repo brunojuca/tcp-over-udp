@@ -96,12 +96,15 @@ def send_data(buffer : list, window_size : int):
 
             if ack.header.seq_number == accumulative_ack:
                 accumulative_ack += 1
-                window_begin += 1
-                window_end += 1
+                #window_begin += 1
+                #window_end += 1
+                window_begin += ack.header.window_size
+                window_end += ack.header.window_size
 
                 print(f"Accumulative ACK increased to {accumulative_ack}")
 
-                if window_end-1 == len(buffer):
+                #if window_end-1 == len(buffer):
+                if window_end > len(buffer):
                     window_end = len(buffer)
 
                 break

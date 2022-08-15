@@ -43,6 +43,7 @@ def main():
     window_begin = 0 # The first packet to be sent in the pipeline
     window_end = window_begin + window_size # The last packet to be sent in the pipeline
     nextseqnum = 0  # Next sequence number to be received
+    packets_in_window = 0
     while True:
         packet_dumped, clientAddress = serverSocket.recvfrom(2048)
         packet = pickle.loads(packet_dumped)
@@ -52,7 +53,16 @@ def main():
                 recv_data += packet.payload
                 nextseqnum += 1
                 print(f"Packet #{packet.header.seq_number} received, sending ACK...")
-                ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, packet.header.window_size, True), ACK_SIZE, ACK_PAYLOAD)
+                
+                # Controle de Fluxo
+                packets_in_window += 1
+                if packets_in_window == window_size:
+                    new_window_size = window_size
+                    packets_in_window = 0
+                else:
+                    new_window_size = window_size - packets_in_window
+                
+                ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, new_window_size, True), ACK_SIZE, ACK_PAYLOAD)
                 ack_dumped = pickle.dumps(ack)
                 serverSocket.sendto(ack_dumped, clientAddress)
             if packet.header.end:
