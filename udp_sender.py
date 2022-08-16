@@ -14,7 +14,7 @@ GREATER_PACKET_SIZE = 1024 # The greater size of the packets is 1024 bytes
 SOURCE = 0
 DESTINATION = 1
 WINDOW_SIZE_REQUEST_CODE = "window_size"
-n_acked = 0
+
 n_received = 0
 
 def read_input(input_path : str):
@@ -73,6 +73,7 @@ def send_data(buffer : list, window_size : int):
     window_begin = 0 # The first packet to be sent in the pipeline
     window_end = window_begin + window_size # The last packet to be sent in the pipeline
     accumulative_ack = 0 # The last smallest ack received
+    n_acked = 0
 
     # Sending number of packets
     clientSocket.sendto(str(len(buffer)).encode(), (serverName, serverPort))
@@ -91,15 +92,16 @@ def send_data(buffer : list, window_size : int):
             clientSocket.sendto(packet_dumped, (serverName, serverPort))
 
         for packet_n in range(window_begin, window_end):  
-            # if not continue_option:
-            #     option = input("")
-            #     if option == "continue":
-            #         continue_option = True
+            if not continue_option:
+                option = input("")
+                if option == "continue":
+                    continue_option = True
             
             ack_dumped, serverAddress = clientSocket.recvfrom(2048)
             ack = pickle.loads(ack_dumped)
             if ack.header.seq_number != -1:
                 print(f"ACK #{ack.header.seq_number} received")
+                n_acked += 1
             else:
                 print("Timeout, resending packets...")
                 break
@@ -116,6 +118,13 @@ def send_data(buffer : list, window_size : int):
                     window_end = len(buffer)
 
 
+        # Controle de Congestionamento
+        current_window_size = window_end - window_begin
+        if n_acked/current_window_size < 0.9*current_window_size:
+            window_end = window_begin + math.ceil(0.9*current_window_size)
+            print("nem window size: ", window_end - window_begin)
+
+        n_acked = 0
             
     print("Closing socket...")
     clientSocket.close()
