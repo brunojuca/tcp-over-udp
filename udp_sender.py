@@ -10,6 +10,8 @@ import sys
 import math
 import pickle
 
+## TODO Explicar no relatorio sobre o 2048 e tamanho de buffer de espera da UDP ou socket
+
 GREATER_PACKET_SIZE = 1024 # The greater size of the packets is 1024 bytes
 SOURCE = 0
 DESTINATION = 1
@@ -99,12 +101,20 @@ def send_data(buffer : list, window_size : int):
             
             ack_dumped, serverAddress = clientSocket.recvfrom(2048)
             ack = pickle.loads(ack_dumped)
+            # if packet arrived
             if ack.header.seq_number != -1:
                 print(f"ACK #{ack.header.seq_number} received")
                 n_acked += 1
-            else:
+            #packet was lost
+            elif ack.header.seq_number == -1:
                 print("Timeout, resending packets...")
                 break
+            #end
+            elif ack.header.seq_number == -2:
+                print("Receiver got to the end")
+                clientSocket.close()
+                return
+                
 
             print("[ACK] seqnum: ", ack.header.seq_number, "acc ack: ", accumulative_ack)
             if ack.header.seq_number == accumulative_ack:
@@ -112,20 +122,28 @@ def send_data(buffer : list, window_size : int):
                 
                 accumulative_ack += 1
                 window_begin += 1
-                window_end += 1
+                
+                recv_free_space = ack.header.window_size
+                
+                #Controle de Fluxo
+                window_end = window_begin + recv_free_space
 
                 if window_end > len(buffer):
                     window_end = len(buffer)
+                 
 
-
-        # Controle de Congestionamento
+        # Controle de (Congestionamento)
         current_window_size = window_end - window_begin
-        if n_acked/current_window_size < 0.9*current_window_size:
-            window_end = window_begin + math.ceil(0.9*current_window_size)
+        print("crrnt wind siz: ", current_window_size)
+        
+        if current_window_size == 0:
+            break
+        elif (n_acked/current_window_size) < (0.9*current_window_size):
+            window_end = window_begin + math.ceil(0.8*current_window_size)
             print("nem window size: ", window_end - window_begin)
 
         n_acked = 0
-            
+    
     print("Closing socket...")
     clientSocket.close()
 

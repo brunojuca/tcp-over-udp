@@ -4,5 +4,5 @@ class Header:
         self.destination = destination
         self.is_ack = is_ack
         self.seq_number = seq_number
-        self.window_size = window_size if not is_ack else -1
+        self.window_size = window_size
         
