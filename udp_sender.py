@@ -4,7 +4,6 @@ Example of usage:
 """
 
 from socket import *
-import time
 from packet import *
 import argparse
 import sys
@@ -36,15 +35,13 @@ def generate_buffer(input_data : str, window_size : int):
     for i in range(n_packets):
         header = Header(SOURCE, DESTINATION, i, window_size)
         max_payload_size = GREATER_PACKET_SIZE - sys.getsizeof(header) - 49 # 49 is the size of the payload list empty
-        payload = input_data[(i-1)*max_payload_size:i*max_payload_size] if i < n_packets-1 else input_data[(i-1)*max_payload_size:]
+        payload = input_data[i*max_payload_size:(i+1)*max_payload_size]
         packet_size = sys.getsizeof(payload) + sys.getsizeof(header)
 
         packet = Packet(header, packet_size, payload)
         buffer.append(packet)
-    end_packet = Packet(Header(SOURCE, DESTINATION, n_packets, window_size, end = True), sys.getsizeof(header), "")
-    buffer.append(end_packet)
     
-    print(f"There are {n_packets} packets with 1024 bytes and a packet with {packet_size} bytes to be sent")
+    print(f"There are {n_packets-1} packets with 1024 bytes and a packet with {packet_size} bytes to be sent")
 
     return buffer
 
@@ -68,10 +65,12 @@ def send_data(buffer : list, window_size : int):
 
     continue_option = False
 
-    timeout = 0.1 # 1 second
     window_begin = 0 # The first packet to be sent in the pipeline
     window_end = window_begin + window_size # The last packet to be sent in the pipeline
     accumulative_ack = 0 # The last smallest ack received
+
+    # Sending number of packets
+    clientSocket.sendto(str(len(buffer)).encode(), (serverName, serverPort))
 
     while True:   
         if window_begin == window_end:
@@ -85,40 +84,33 @@ def send_data(buffer : list, window_size : int):
             packet_dumped = pickle.dumps(buffer[packet_n])
             clientSocket.sendto(packet_dumped, (serverName, serverPort))
 
-            # Starting temporization
-            if packet_n == window_begin:
-                start_timer = time.time()
-
-        while True:
-            ack_dumped, serverAddress = clientSocket.recvfrom(2048)
-            ack = pickle.loads(ack_dumped)
-            print(f"ACK #{ack.header.seq_number} received")
-
-            if ack.header.seq_number == accumulative_ack:
-                accumulative_ack += 1
-                #window_begin += 1
-                #window_end += 1
-                window_begin += ack.header.window_size
-                window_end += ack.header.window_size
-
-                print(f"Accumulative ACK increased to {accumulative_ack}")
-
-                #if window_end-1 == len(buffer):
-                if window_end > len(buffer):
-                    window_end = len(buffer)
-
-                break
-            
+        while True:  
             if not continue_option:
                 option = input("")
                 if option == "continue":
                     continue_option = True
             
-            # Timeout verification
-            current_time = time.time()
-            if current_time - start_timer > timeout:
+            ack_dumped, serverAddress = clientSocket.recvfrom(2048)
+            ack = pickle.loads(ack_dumped)
+            if ack.header.seq_number != -1:
+                print(f"ACK #{ack.header.seq_number} received")
+            else:
+                print("Timeout, resending packets...")
                 break
-        
+
+            if ack.header.seq_number == accumulative_ack:
+                print(f"Accumulative ACK increased to {accumulative_ack}")
+                
+                accumulative_ack += 1
+                window_begin += 1
+                window_end += 1
+
+                if window_end > len(buffer):
+                    window_end = len(buffer)
+
+                break
+
+            
     print("Closing socket...")
     clientSocket.close()
 

@@ -4,7 +4,7 @@ import pickle
 import numpy
 import argparse
 
-PACKET_LOSS_PROBABILITY = 0.0
+PACKET_LOSS_PROBABILITY = 0.2
 ACK_SIZE = 1 # Byte
 ACK_PAYLOAD = ""
 WINDOW_SIZE_REQUEST_CODE = "window_size"
@@ -18,6 +18,44 @@ def send_window_size(window_size : int, serverSocket : socket):
     if message_encoded.decode() == WINDOW_SIZE_REQUEST_CODE:
         print("Sending window size...")
         serverSocket.sendto(f"{window_size}".encode(), clientAddress)
+
+def recv_data(serverSocket, window_size):
+    recv_data = ""
+
+    print("The server is ready to receive")
+
+    n_packets_encoded, clientAddress = serverSocket.recvfrom(2048)
+    n_packets = int(n_packets_encoded.decode())
+
+    window_begin = 0 # The first packet to be sent in the pipeline
+    window_end = window_begin + window_size # The last packet to be sent in the pipeline
+    nextseqnum = 0  # Next sequence number to be received
+    while True:
+        packet_dumped, clientAddress = serverSocket.recvfrom(2048)
+        packet = pickle.loads(packet_dumped)
+        
+        if not packet_was_lost(PACKET_LOSS_PROBABILITY):
+            if packet.header.seq_number == nextseqnum:
+                recv_data += packet.payload
+                nextseqnum += 1
+                print(f"Packet #{packet.header.seq_number} received, sending ACK...")
+                ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, packet.header.window_size, True), ACK_SIZE, ACK_PAYLOAD)
+                ack_dumped = pickle.dumps(ack)
+                serverSocket.sendto(ack_dumped, clientAddress)
+        else:
+            print(f"Packet with sequence number {packet.header.seq_number} was lost")
+            nack = Packet(Header(packet.header.destination, packet.header.source, -1, packet.header.window_size, True), 0, '')
+            nack_dumped = pickle.dumps(nack)
+            serverSocket.sendto(nack_dumped, clientAddress)
+
+        if packet.header.seq_number == n_packets - 1:
+            print("Reached end packet, breaking listening loop...")
+            break
+
+    print("Closing socket...")
+    serverSocket.close()
+
+    return recv_data
 
 def main():
     serverPort = 12000
@@ -35,47 +73,11 @@ def main():
     # Waiting for the client to ask the window size
     send_window_size(window_size, serverSocket)
 
-    recv_data = ""
-
-    print("The server is ready to receive")
-
-    window_begin = 0 # The first packet to be sent in the pipeline
-    window_end = window_begin + window_size # The last packet to be sent in the pipeline
-    nextseqnum = 0  # Next sequence number to be received
-    packets_in_window = 0
-    while True:
-        packet_dumped, clientAddress = serverSocket.recvfrom(2048)
-        packet = pickle.loads(packet_dumped)
-        
-        if not packet_was_lost(PACKET_LOSS_PROBABILITY):
-            if packet.header.seq_number == nextseqnum:
-                recv_data += packet.payload
-                nextseqnum += 1
-                print(f"Packet #{packet.header.seq_number} received, sending ACK...")
-                
-                # Controle de Fluxo
-                packets_in_window += 1
-                if packets_in_window == window_size:
-                    new_window_size = window_size
-                    packets_in_window = 0
-                else:
-                    new_window_size = window_size - packets_in_window
-                
-                ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, new_window_size, True), ACK_SIZE, ACK_PAYLOAD)
-                ack_dumped = pickle.dumps(ack)
-                serverSocket.sendto(ack_dumped, clientAddress)
-            if packet.header.end:
-                print("Reached end packet, breaking listening loop...")
-                break
-        else:
-            print(f"Packet with sequence number {packet.header.seq_number} was lost")
-    
-    print("Closing socket...")
-    serverSocket.close()
+    recv_data_str = recv_data(serverSocket, window_size)
 
     print("Writing file...")
     with open("received_file.txt", "w") as file:
-        file.write(recv_data)
+        file.write(recv_data_str)
 
 if __name__ == "__main__":
     main()
