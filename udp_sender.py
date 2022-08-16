@@ -14,6 +14,8 @@ GREATER_PACKET_SIZE = 1024 # The greater size of the packets is 1024 bytes
 SOURCE = 0
 DESTINATION = 1
 WINDOW_SIZE_REQUEST_CODE = "window_size"
+n_acked = 0
+n_received = 0
 
 def read_input(input_path : str):
     with open(input_path, "r") as f:
@@ -64,6 +66,9 @@ def send_data(buffer : list, window_size : int):
     clientSocket = socket(AF_INET, SOCK_DGRAM)
 
     continue_option = False
+    
+    # Ajust window size
+    window_size = window_size if window_size < len(buffer) else len(buffer)
 
     window_begin = 0 # The first packet to be sent in the pipeline
     window_end = window_begin + window_size # The last packet to be sent in the pipeline
@@ -81,14 +86,15 @@ def send_data(buffer : list, window_size : int):
         print(f"Sending packets from {window_begin} to {window_end-1} that weren't acked yet")
         for packet_n in range(window_begin, window_end):           
             # Pickle the object and send it to the server
+            print("sendind seq num: ", buffer[packet_n].header.seq_number)
             packet_dumped = pickle.dumps(buffer[packet_n])
             clientSocket.sendto(packet_dumped, (serverName, serverPort))
 
-        while True:  
-            if not continue_option:
-                option = input("")
-                if option == "continue":
-                    continue_option = True
+        for packet_n in range(window_begin, window_end):  
+            # if not continue_option:
+            #     option = input("")
+            #     if option == "continue":
+            #         continue_option = True
             
             ack_dumped, serverAddress = clientSocket.recvfrom(2048)
             ack = pickle.loads(ack_dumped)
@@ -98,8 +104,9 @@ def send_data(buffer : list, window_size : int):
                 print("Timeout, resending packets...")
                 break
 
+            print("[ACK] seqnum: ", ack.header.seq_number, "acc ack: ", accumulative_ack)
             if ack.header.seq_number == accumulative_ack:
-                print(f"Accumulative ACK increased to {accumulative_ack}")
+                print(f"Accumulative ACK increased to {accumulative_ack+1}")
                 
                 accumulative_ack += 1
                 window_begin += 1
@@ -108,7 +115,6 @@ def send_data(buffer : list, window_size : int):
                 if window_end > len(buffer):
                     window_end = len(buffer)
 
-                break
 
             
     print("Closing socket...")

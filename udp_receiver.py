@@ -33,24 +33,25 @@ def recv_data(serverSocket, window_size):
     while True:
         packet_dumped, clientAddress = serverSocket.recvfrom(2048)
         packet = pickle.loads(packet_dumped)
+        print("next seq num: ", nextseqnum)
         
         if not packet_was_lost(PACKET_LOSS_PROBABILITY):
+            ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, packet.header.window_size, True), ACK_SIZE, ACK_PAYLOAD)
+            ack_dumped = pickle.dumps(ack)
+            serverSocket.sendto(ack_dumped, clientAddress)
             if packet.header.seq_number == nextseqnum:
                 recv_data += packet.payload
                 nextseqnum += 1
                 print(f"Packet #{packet.header.seq_number} received, sending ACK...")
-                ack = Packet(Header(packet.header.destination, packet.header.source, packet.header.seq_number, packet.header.window_size, True), ACK_SIZE, ACK_PAYLOAD)
-                ack_dumped = pickle.dumps(ack)
-                serverSocket.sendto(ack_dumped, clientAddress)
+                if packet.header.seq_number == n_packets - 1:
+                    print("Reached end packet, breaking listening loop...")
+                    break
         else:
             print(f"Packet with sequence number {packet.header.seq_number} was lost")
             nack = Packet(Header(packet.header.destination, packet.header.source, -1, packet.header.window_size, True), 0, '')
             nack_dumped = pickle.dumps(nack)
             serverSocket.sendto(nack_dumped, clientAddress)
 
-        if packet.header.seq_number == n_packets - 1:
-            print("Reached end packet, breaking listening loop...")
-            break
 
     print("Closing socket...")
     serverSocket.close()
