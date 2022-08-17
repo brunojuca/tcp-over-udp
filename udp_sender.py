@@ -80,7 +80,9 @@ def send_data(buffer : list, window_size : int):
     # Sending number of packets
     clientSocket.sendto(str(len(buffer)).encode(), (serverName, serverPort))
 
-    while True:   
+    total_acks_por_rajada = []
+    while True:
+        acks_por_rajada = 0
         if window_begin == window_end:
             print("All packets were acked, stopping the process...")
             break
@@ -105,6 +107,7 @@ def send_data(buffer : list, window_size : int):
             if ack.header.seq_number != -1:
                 print(f"ACK #{ack.header.seq_number} received")
                 n_acked += 1
+                acks_por_rajada += 1
             #packet was lost
             elif ack.header.seq_number == -1:
                 print("Timeout, resending packets...")
@@ -131,7 +134,7 @@ def send_data(buffer : list, window_size : int):
                 if window_end > len(buffer):
                     window_end = len(buffer)
                  
-
+        total_acks_por_rajada.append(acks_por_rajada)
         # Controle de (Congestionamento)
         current_window_size = window_end - window_begin
         print("crrnt wind siz: ", current_window_size)
