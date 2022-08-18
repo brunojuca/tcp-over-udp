@@ -9,6 +9,8 @@ import argparse
 import sys
 import math
 import pickle
+from matplotlib import pyplot as plt
+import numpy as np
 
 ## TODO Explicar no relatorio sobre o 2048 e tamanho de buffer de espera da UDP ou socket
 
@@ -82,7 +84,6 @@ def send_data(buffer : list, window_size : int):
 
     total_acks_por_rajada = []
     while True:
-        acks_por_rajada = 0
         if window_begin == window_end:
             print("All packets were acked, stopping the process...")
             break
@@ -107,7 +108,6 @@ def send_data(buffer : list, window_size : int):
             if ack.header.seq_number != -1:
                 print(f"ACK #{ack.header.seq_number} received")
                 n_acked += 1
-                acks_por_rajada += 1
             #packet was lost
             elif ack.header.seq_number == -1:
                 print("Timeout, resending packets...")
@@ -134,7 +134,7 @@ def send_data(buffer : list, window_size : int):
                 if window_end > len(buffer):
                     window_end = len(buffer)
                  
-        total_acks_por_rajada.append(acks_por_rajada)
+        total_acks_por_rajada.append(n_acked)
         # Controle de (Congestionamento)
         current_window_size = window_end - window_begin
         print("crrnt wind siz: ", current_window_size)
@@ -149,6 +149,15 @@ def send_data(buffer : list, window_size : int):
     
     print("Closing socket...")
     clientSocket.close()
+
+    x = np.linspace(0, len(total_acks_por_rajada), len(total_acks_por_rajada))
+    plt.plot(x, total_acks_por_rajada)
+    plt.title("Acks por pipeline")
+    plt.xlabel("# Pipeline")
+    plt.ylabel("# Acks")
+    plt.savefig('foo.png')
+    plt.show()
+
 
 def main():
     parser = argparse.ArgumentParser(description="sender")
