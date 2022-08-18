@@ -4,7 +4,7 @@ import pickle
 import numpy
 import argparse
 
-PACKET_LOSS_PROBABILITY = 0.0
+PACKET_LOSS_PROBABILITY = 0.9
 ACK_SIZE = 1 # Byte
 ACK_PAYLOAD = ""
 WINDOW_SIZE_REQUEST_CODE = "window_size"

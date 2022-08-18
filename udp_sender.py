@@ -9,10 +9,6 @@ import argparse
 import sys
 import math
 import pickle
-from matplotlib import pyplot as plt
-import numpy as np
-
-## TODO Explicar no relatorio sobre o 2048 e tamanho de buffer de espera da UDP ou socket
 
 GREATER_PACKET_SIZE = 1024 # The greater size of the packets is 1024 bytes
 SOURCE = 0
@@ -82,7 +78,6 @@ def send_data(buffer : list, window_size : int):
     # Sending number of packets
     clientSocket.sendto(str(len(buffer)).encode(), (serverName, serverPort))
 
-    total_acks_por_rajada = []
     while True:
         if window_begin == window_end:
             print("All packets were acked, stopping the process...")
@@ -105,7 +100,7 @@ def send_data(buffer : list, window_size : int):
             ack_dumped, serverAddress = clientSocket.recvfrom(2048)
             ack = pickle.loads(ack_dumped)
             # if packet arrived
-            if ack.header.seq_number != -1:
+            if ack.header.seq_number > -1:
                 print(f"ACK #{ack.header.seq_number} received")
                 n_acked += 1
             #packet was lost
@@ -133,31 +128,20 @@ def send_data(buffer : list, window_size : int):
 
                 if window_end > len(buffer):
                     window_end = len(buffer)
-                 
-        total_acks_por_rajada.append(n_acked)
+        
         # Controle de (Congestionamento)
         current_window_size = window_end - window_begin
-        print("crrnt wind siz: ", current_window_size)
         
         if current_window_size == 0:
             break
-        elif (n_acked/current_window_size) < (0.9*current_window_size):
-            window_end = window_begin + math.ceil(0.8*current_window_size)
+        elif (current_window_size - n_acked) > (0.4*current_window_size):
+            window_end = window_begin + math.ceil(0.9*current_window_size)
             print("nem window size: ", window_end - window_begin)
 
         n_acked = 0
     
     print("Closing socket...")
     clientSocket.close()
-
-    x = np.linspace(0, len(total_acks_por_rajada), len(total_acks_por_rajada))
-    plt.plot(x, total_acks_por_rajada)
-    plt.title("Acks por pipeline")
-    plt.xlabel("# Pipeline")
-    plt.ylabel("# Acks")
-    plt.savefig('foo.png')
-    plt.show()
-
 
 def main():
     parser = argparse.ArgumentParser(description="sender")

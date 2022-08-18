@@ -17,3 +17,7 @@ Para este trabalho você terá uma comunicação ponto a ponto (cliente e servid
 9) Avalie seu protocolo sobre um remetente que envia um arquivo de, pelo menos, 10MB, qualquer, para 1 destinatário. Para avaliar o controle de congestionamento, insira perdas arbitrárias de pacotes no destinatário (você pode fazer isso sorteando a cada chegada de um novo pacotes se ele será contabilizado e processado ou descartado).
 
 Escreva um relatório como documentação da lógica do protocolo, e mostre gráficos da utilização do protocolo em relação à vazão da rede para o envio do arquivo de 10MB sem e com perdas.
+
+# Roteiro de execução
+
+Dividimos o projeto em dois arquivo principais: o [udp_sender.py](udp_sender.py) e o [udp_receiver.py](udp_receiver.py) onde no primeiro temos os métodos para o divisão e envio devido dos pacotes e no segundo os métodos para recebimento, confirmação e escrita do arquivo recebido. Dentro do diretório com os *scripts* existe o diretório **input** em que estão armazenados os arquivos teste de entrada do *software*. O arquivo com 10MB é o nomeado **default_input.txt**. Para a execução do arquivo **udp_sender.py** é necessário executar o seguinte comando **python3 udp_sender.py --input caminho/para/input** onde no argumento **input** deve ser indicado o caminho do arquivo de entrada. Para a execução do *script* **udp_receiver.py** deve utilizar o seguinte padrão de comando **python3 udp_receiver.py --window_size tamanho_do_pacote**. 
