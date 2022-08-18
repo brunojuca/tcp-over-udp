@@ -34,7 +34,6 @@ def recv_data(serverSocket, window_size):
     while True:
         packet_dumped, clientAddress = serverSocket.recvfrom(2048)
         packet = pickle.loads(packet_dumped)
-        print("next seq num: ", nextseqnum)
         
         if not packet_was_lost(PACKET_LOSS_PROBABILITY):
             
